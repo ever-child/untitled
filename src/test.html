@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="layui/css/layui.css" />
+    <style type="text/css">
+	.childBody {
+        padding: 15px;
+    }
+
+    .layui-btn-sm {
+        line-height: normal;
+        font-size: 12.5px;
+    }
+
+    .layui-table-view .layui-table-body {
+        min-height: 256px;
+    }
+
+    .layui-table-cell .layui-input.layui-unselect {
+        height: 30px;
+        line-height: 30px;
+    }
+
+    .table-overlay .layui-table-view,
+    .table-overlay .layui-table-box,
+    .table-overlay .layui-table-body {
+        overflow: visible;
+    }
+
+    .table-overlay .layui-table-cell {
+        height: auto;
+        overflow: visible;
+    }
+
+    /*文本对齐方式*/
+    .text-center {
+        text-align: center;
+    }
+    /*文本对齐方式*/
+    .text-left {
+        text-align: left;
+        font-weight:200;
+    }
+</style>
+</head>
+<body class="childBody">
+
+<section class="layui-col-md10" style="margin: 0 auto; float: none;">
+    <div class="layui-card">
+        <div id="toolbar" class="layui-form-item">
+            <button type="button" class="layui-btn layui-btn-normal" data-type="addRow" title="添加联系方式">
+                <i class="layui-icon layui-icon-add-1"></i> 添加联系方式
+            </button>
+        </div>
+        <div id="tableRes" class="table-overlay">
+            <table id="dataTable" lay-filter="dataTable" class="layui-hide"></table>
+        </div>
+        <div class="text-center">
+            <button class="layui-btn" lay-submit="" lay-filter="formDemo">提交</button>
+        </div>
+    </div>
+    <!--结果输出-->
+    <div class="layui-card">
+        <div class="layui-card-header">结果输出</div>
+        <div class="layui-card-body layui-text">
+            <blockquote class="layui-elem-quote layui-quote-nm">
+                <pre id="jsonResult"><span class="layui-word-aux">请点击“提交”后查看输出信息……</span></pre>
+            </blockquote>
+        </div>
+    </div>
+</section>
+
+<script src="layui/layui.js" charset="utf-8"></script>
+<script type="text/javascript">
+	var companyContactsDetailList = new Array();
+	var typeList = new Array();
+	var detailLists = new Array();
+	//数据格式
+	detailLists=[{tempId : 1, typeId : 1, num : "13546"}]
+	//select 类型Json格式
+	typeList =[{typeId: 1, typeName: '类型一'},
+			{typeId: 2, typeName: '类型二'},
+			{typeId: 3, typeName: '类型三'},
+			{typeId: 4, typeName: '类型四'}]
+window.viewObj = {
+        tbData: detailLists,
+        typeData: typeList,
+        renderSelectOptions: function (data, settings) {
+            settings = settings || {};
+            var valueField = settings.valueField || 'value',
+                textField = settings.textField || 'text',
+                selectedValue = settings.selectedValue || "";
+            var html = [];
+            for (var i = 0, item; i < data.length; i++) {
+                item = data[i];
+                html.push('<option value="');
+                html.push(item[valueField]);
+                html.push('"');
+                if (selectedValue && item[valueField] == selectedValue) {
+                    html.push(' selected="selected"');
+                }
+                html.push('>');
+                html.push(item[textField]);
+                html.push('</option>');
+            }
+            return html.join('');
+        }
+    };
+    layui.use(['jquery', 'table', 'form', 'layer'], function () {
+        var $ = layui.$;
+        var form = layui.form;
+        var layer = layui.layer;
+        var table = layui.table;
+        //数据表格实例化
+        var tbWidth = $("#tableRes").width();
+        var layTableId = "layTable";
+        var tableIns = table.render({
+            elem: '#dataTable',
+            id: layTableId,
+            data: viewObj.tbData,
+            width: tbWidth,
+            loading: true,
+            //不开启分页
+			page:false,
+            limit:1000,
+            even: false,
+            cols: [[
+                {
+                    field: 'typeId', title: '类型', templet: function (d) {
+                        var options = viewObj.renderSelectOptions(viewObj.typeData, {
+                            valueField: "typeId",
+                            textField: "typeName",
+                            selectedValue: d.typeId
+                        });
+                        return '<a lay-event="type"></a><select name="type" lay-filter="type"><option value="">请选择类型</option>' + options + '</select>';
+                    }
+                },
+                {field: 'num', title: '号码', edit: 'text'},
+                {
+                    field: 'tempId', title: '操作', templet: function (d) {
+                        return '<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del" lay-id="' + d.tempId + '"><i class="layui-icon layui-icon-delete"></i>移除</a>';
+                    }
+                }
+            ]],
+            done: function (res, curr, count) {
+                viewObj.tbData = res.data;
+            }
+        });
+        //定义事件集合
+        var active = {
+			//添加事件
+            addRow: function () {
+			//添加一行
+                var oldData = table.cache[layTableId];
+                console.log(oldData);
+                var newRow = {tempId: new Date().valueOf(), typeId: null, num: ''};
+                oldData.push(newRow);
+                tableIns.reload({
+                    data: oldData
+                });
+				 form.render();
+            },
+			//更新事件
+            updateRow: function (obj) {
+                var oldData = table.cache[layTableId];
+             //   console.log(oldData);
+                for (var i = 0, row; i < oldData.length; i++) {
+                    row = oldData[i];
+                    if (row.tempId == obj.tempId) {
+                        $.extend(oldData[i], obj);
+                        return;
+                    }
+                }
+                tableIns.reload({
+                    data: oldData
+                });
+            },
+			//删除事件
+            removeEmptyTableCache: function () {
+                var oldData = table.cache[layTableId];
+                for (var i = 0, row; i < oldData.length; i++) {
+                    row = oldData[i];
+                    if (!row || !row.tempId) {
+					 //删除一项
+                        oldData.splice(i, 1);
+                    }
+                    continue;
+                }
+                tableIns.reload({
+                    data: oldData
+                });
+            }
+        }
+
+        //激活事件
+        var activeByType = function (type, arg) {
+            if (arguments.length === 2) {
+                active[type] ? active[type].call(this, arg) : '';
+            } else {
+                active[type] ? active[type].call(this) : '';
+            }
+        }
+
+        //提交按钮事件
+        $('.layui-btn[data-type]').on('click', function () {
+            var type = $(this).data('type');
+            activeByType(type);
+        });
+
+        //监听select下拉选中事件
+        form.on('select(type)', function(data){
+		//得到select原始DOM对象
+            var elem = data.elem;
+            $(elem).prev("a[lay-event='type']").trigger("click");
+        });
+
+        //监听工具条
+        table.on('tool(dataTable)', function (obj) {
+		//获得当前行 tr 的DOM对象;
+            var data = obj.data, event = obj.event, tr = obj.tr;
+          //  console.log(data);
+            switch (event) {
+                case "type":
+                    //console.log(data);
+                    var select = tr.find("select[name='type']");
+                    if (select) {
+                        var selectedVal = select.val();
+                        if (!selectedVal) {
+						//吸附提示
+                            layer.tips("请选择一个类型", select.next('.layui-form-select'), {tips: [3, '#FF5722']});
+                        }
+                       // console.log(selectedVal);
+                        $.extend(obj.data, {'typeId': selectedVal});
+						//更新行记录对象
+                        activeByType('updateRow', obj.data);
+                    }
+                    break;
+
+                case "del":
+                    layer.confirm('真的删除行么？', function (index) {
+					//删除对应行（tr）的DOM结构，并更新缓存
+                        obj.del();
+                        layer.close(index);
+                        activeByType('removeEmptyTableCache');
+                    });
+                    break;
+            }
+        });
+
+        form.on('submit(formDemo)', function (data) {
+            var oldData = table.cache[layTableId];
+           // console.log(oldData);
+            for (var i = 0, row; i < oldData.length; i++) {
+                row = oldData[i];
+                if (!row.typeId) {
+				//提示
+                    layer.msg("检查每一行，请选择类型！", {icon: 5});
+                    return false;
+                }
+                if (!row.num) {
+				//提示
+                    layer.msg("检查每一行，请输入号码！", {icon: 5});
+                    return false;
+                }
+                var companyContactsDetail = {
+                    "contactsType": row.typeId,
+                    "contactsCode": row.num
+                };
+                companyContactsDetailList.push(companyContactsDetail)
+            }
+			//使用JSON.stringify() 格式化输出JSON字符串
+			document.getElementById("jsonResult").innerHTML = JSON.stringify(table.cache[layTableId], null, 2);
+
+            console.log(json);
+			//使用JSON.stringify() 格式化输出JSON字符串
+            var json = JSON.stringify(table.cache[layTableId], null, 2);
+			//后台
+			// var url = prefix;
+			// var param = {
+			//     "companyContactsDetailList": companyContactsDetailList
+			// };
+			// $.ajax({
+			//     cache: true,
+			//     url: url,
+			//     type: "POST",
+			//     contentType: "application/json;charset=UTF-8",
+			//     data : JSON.stringify(param),
+			//     async: false,
+			//     error: function (request) {
+			//         layer.alert('系统错误');
+			//     },
+			//     success: function (result) {
+			//         if (result.code !== web_status.SUCCESS) {
+			//             layer.alert(result.msg);
+			//             return;
+			//         }
+			//         layer.msg(result.msg, {icon: 1}, function () {
+			//             //成功跳转
+			//         });
+			//     }
+			// });
+				return false;
+			});
+
+    });
+</script>
+
+</body>
+</html>
